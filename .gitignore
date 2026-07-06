@@ -1,0 +1,6 @@
+# СЕКРЕТИ — ніколи не комітяться
+wifi.txt
+healthcheck.txt
+
+# логи роботи startup.sh
+logs/
