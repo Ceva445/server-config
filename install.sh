@@ -16,13 +16,23 @@ sudo systemctl daemon-reload
 sudo systemctl enable apps-startup.service
 
 echo "=== Оновлюю конфіг cloudflared ==="
-if ! sudo diff -q "$REPO_DIR/cloudflared/config.yml" /etc/cloudflared/config.yml >/dev/null 2>&1; then
-    cloudflared tunnel --config "$REPO_DIR/cloudflared/config.yml" ingress validate
-    sudo cp "$REPO_DIR/cloudflared/config.yml" /etc/cloudflared/config.yml
-    sudo systemctl restart cloudflared
-    echo "cloudflared перезапущено"
+TUNNEL_SECRET="$REPO_DIR/cloudflared/tunnel-secret.yml"
+TUNNEL_INGRESS="$REPO_DIR/cloudflared/ingress.yml"
+if [ ! -f "$TUNNEL_SECRET" ]; then
+    echo "ПРОПУСКАЮ: немає cloudflared/tunnel-secret.yml (він у .gitignore)."
+    echo "Створи його за шаблоном templates/tunnel-secret.yml.example"
 else
-    echo "cloudflared без змін"
+    TMP_CONFIG=$(mktemp)
+    cat "$TUNNEL_SECRET" "$TUNNEL_INGRESS" > "$TMP_CONFIG"
+    if ! sudo diff -q "$TMP_CONFIG" /etc/cloudflared/config.yml >/dev/null 2>&1; then
+        cloudflared tunnel --config "$TMP_CONFIG" ingress validate
+        sudo cp "$TMP_CONFIG" /etc/cloudflared/config.yml
+        sudo systemctl restart cloudflared
+        echo "cloudflared перезапущено"
+    else
+        echo "cloudflared без змін"
+    fi
+    rm -f "$TMP_CONFIG"
 fi
 
 echo "=== Шаблони конфігів (якщо ще нема реальних) ==="

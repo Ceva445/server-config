@@ -9,7 +9,7 @@
 |---|---|
 | `startup.sh` | Автозапуск: Wi-Fi → git pull → docker compose up --build → перевірка стану → логи/алерти |
 | `apps-startup.service` | systemd-юніт, який запускає `startup.sh` при завантаженні |
-| `cloudflared/config.yml` | Ingress-правила тунелю (субдомен → локальний порт) |
+| `cloudflared/ingress.yml` | Ingress-правила тунелю (субдомен → локальний порт) |
 | `install.sh` | Розкатує все перелічене на сервер |
 | `templates/` | Шаблони секретних конфігів (реальні — тільки на сервері, у git не комітяться) |
 
@@ -34,7 +34,7 @@ bash install.sh
 
 1. Склонувати репозиторій проекту в `~/Desktop/apps/<назва>` (гілка з docker-compose).
 2. Покласти його `.env` (через scp, у git він не живе).
-3. Додати в `cloudflared/config.yml` (у ЦЬОМУ репо) блок перед `http_status:404`:
+3. Додати в `cloudflared/ingress.yml` (у ЦЬОМУ репо) блок перед `http_status:404`:
    ```yaml
    - hostname: <назва>.piatek-magazyn.com
      service: http://localhost:<порт>
@@ -49,6 +49,9 @@ bash install.sh
 - `wifi.txt` — `SSID=` / `PASSWORD=` мережі, до якої підключатися після ребуту.
 - `healthcheck.txt` — один рядок з URL, куди POST-яться логи впалих контейнерів
   (порожній файл = логи лишаються лише локально в `logs/`).
+- `cloudflared/tunnel-secret.yml` — ім'я тунелю та шлях до credentials-файлу
+  (шаблон: `templates/tunnel-secret.yml.example`); install.sh склеює його з
+  `cloudflared/ingress.yml` у `/etc/cloudflared/config.yml`.
 - `.env` кожного проекту — в теці самого проекту.
 
 ## Відновлення сервера з нуля

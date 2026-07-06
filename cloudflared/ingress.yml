@@ -1,0 +1,10 @@
+# Ingress-правила тунелю: субдомен → локальний порт.
+# Редагується через GitHub. Секретна частина (tunnel, credentials-file) —
+# у cloudflared/tunnel-secret.yml (gitignore, тільки на сервері).
+# install.sh склеює обидва файли в /etc/cloudflared/config.yml
+ingress:
+  - hostname: pinokio.piatek-magazyn.com
+    service: http://localhost:8000
+  - hostname: szafa.piatek-magazyn.com
+    service: http://localhost:8001
+  - service: http_status:404
