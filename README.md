@@ -1,28 +1,28 @@
 # server-config
 
-Конфігурація домашнього сервера (NucBox, Ubuntu) для проектів під доменом
-`piatek-magazyn.com`, опублікованих через Cloudflare Tunnel.
+Configuration for the home server (NucBox, Ubuntu) hosting projects under the
+`piatek-magazyn.com` domain, published through a Cloudflare Tunnel.
 
-## Що тут лежить
+## What's here
 
-| Файл | Призначення |
+| File | Purpose |
 |---|---|
-| `startup.sh` | Автозапуск: Wi-Fi → git pull → docker compose up --build → перевірка стану → логи/алерти |
-| `apps-startup.service` | systemd-юніт, який запускає `startup.sh` при завантаженні |
-| `cloudflared/ingress.yml` | Ingress-правила тунелю (субдомен → локальний порт) |
-| `install.sh` | Розкатує все перелічене на сервер |
-| `templates/` | Шаблони секретних конфігів (реальні — тільки на сервері, у git не комітяться) |
+| `startup.sh` | Boot script: Wi-Fi → git pull → docker compose up --build → health check → logs/alerts |
+| `apps-startup.service` | systemd unit that runs `startup.sh` at boot |
+| `cloudflared/ingress.yml` | Tunnel ingress rules (subdomain → local port) |
+| `install.sh` | Deploys everything above onto the server |
+| `templates/` | Templates for secret configs (real ones live only on the server, never committed) |
 
-## Архітектура
+## Architecture
 
-- Кожен проект — тека в `~/Desktop/apps/<назва>` зі своїм `docker-compose.yml`
-  (окремий контейнер застосунку + окремий Postgres).
-- Ця тека репозиторію на сервері — `~/Desktop/apps/configs` (виключена з циклу проектів).
-- Порти: pinokio → 8000, szafa → 8001; наступний проект → 8002 і далі.
-- Cloudflare Tunnel (`cloudflared`, systemd) роздає субдомени на локальні порти,
-  жодних відкритих портів на роутері.
+- Each project is a folder in `~/Desktop/apps/<name>` with its own `docker-compose.yml`
+  (a dedicated app container + a dedicated Postgres).
+- This repository lives on the server at `~/Desktop/apps/configs` (excluded from the project loop).
+- Ports: pinokio → 8000, szafa → 8001; next project → 8002 and so on.
+- Cloudflare Tunnel (`cloudflared`, systemd) maps subdomains to local ports —
+  no open ports on the router.
 
-## Як розгорнути зміни
+## Deploying changes
 
 ```bash
 cd ~/Desktop/apps/configs
@@ -30,35 +30,36 @@ git pull
 bash install.sh
 ```
 
-## Як додати новий проект
+## Adding a new project
 
-1. Склонувати репозиторій проекту в `~/Desktop/apps/<назва>` (гілка з docker-compose).
-2. Покласти його `.env` (через scp, у git він не живе).
-3. Додати в `cloudflared/ingress.yml` (у ЦЬОМУ репо) блок перед `http_status:404`:
+1. Clone the project repository into `~/Desktop/apps/<name>` (the branch with docker-compose).
+2. Copy its `.env` over (via scp; it never lives in git).
+3. Add a block to `cloudflared/ingress.yml` (in THIS repo) before `http_status:404`:
    ```yaml
-   - hostname: <назва>.piatek-magazyn.com
-     service: http://localhost:<порт>
+   - hostname: <name>.piatek-magazyn.com
+     service: http://localhost:<port>
    ```
-4. Створити DNS-запис: `cloudflared tunnel route dns piatek <назва>.piatek-magazyn.com`
-5. `git pull` + `bash install.sh` на сервері — тунель підхопить новий маршрут,
-   а `startup.sh` при наступному старті підніме проект автоматично.
-   Одразу запустити вручну: `sudo systemctl restart apps-startup`.
+4. Create the DNS record: `cloudflared tunnel route dns piatek <name>.piatek-magazyn.com`
+5. `git pull` + `bash install.sh` on the server — the tunnel picks up the new route,
+   and `startup.sh` will bring the project up on the next boot.
+   To start it right away: `sudo systemctl restart apps-startup`.
 
-## Секрети (тільки на сервері)
+## Secrets (server only)
 
-- `wifi.txt` — `SSID=` / `PASSWORD=` мережі, до якої підключатися після ребуту.
-- `healthcheck.txt` — один рядок з URL, куди POST-яться логи впалих контейнерів
-  (порожній файл = логи лишаються лише локально в `logs/`).
-- `cloudflared/tunnel-secret.yml` — ім'я тунелю та шлях до credentials-файлу
-  (шаблон: `templates/tunnel-secret.yml.example`); install.sh склеює його з
-  `cloudflared/ingress.yml` у `/etc/cloudflared/config.yml`.
-- `.env` кожного проекту — в теці самого проекту.
+- `wifi.txt` — `SSID=` / `PASSWORD=` of the network to join after reboot.
+- `healthcheck.txt` — a single line with the URL that receives POSTed logs of failed
+  containers (empty file = logs stay local in `logs/`).
+- `cloudflared/tunnel-secret.yml` — tunnel name and path to the credentials file
+  (template: `templates/tunnel-secret.yml.example`); install.sh merges it with
+  `cloudflared/ingress.yml` into `/etc/cloudflared/config.yml`.
+- Each project's `.env` — inside the project folder itself.
 
-## Відновлення сервера з нуля
+## Rebuilding the server from scratch
 
-1. Встановити Ubuntu, docker.io, docker-compose-v2, git, cloudflared.
+1. Install Ubuntu, docker.io, docker-compose-v2, git, cloudflared.
 2. `cloudflared tunnel login` + `cloudflared tunnel create piatek`
-   (або перенести збережений `~/.cloudflared/*.json` зі старого сервера).
+   (or move the saved `~/.cloudflared/*.json` from the old server).
 3. `git clone https://github.com/Ceva445/server-config.git ~/Desktop/apps/configs`
-4. Заповнити `wifi.txt`, `healthcheck.txt`, склонувати проекти, розкласти `.env`-файли.
+4. Fill in `wifi.txt`, `healthcheck.txt`, `cloudflared/tunnel-secret.yml`,
+   clone the projects, put the `.env` files in place.
 5. `bash ~/Desktop/apps/configs/install.sh`

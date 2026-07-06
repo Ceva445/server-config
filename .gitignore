@@ -1,7 +1,7 @@
-# СЕКРЕТИ — ніколи не комітяться
+# SECRETS — never committed
 wifi.txt
 healthcheck.txt
 cloudflared/tunnel-secret.yml
 
-# логи роботи startup.sh
+# startup.sh run logs
 logs/
