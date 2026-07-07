@@ -62,7 +62,7 @@ bash install.sh
 
 | Tier | Where | When | Kept | Protects against |
 |---|---|---|---|---|
-| hourly | `~/backups/<project>/` | every hour | 48 | accidental data deletion |
+| hourly | `~/Desktop/backups/<project>/` | every hour | 48 | accidental data deletion |
 | daily | Google Drive `gdrive:ServerBackups/` | ~once a day | 30 | disk/server loss |
 | weekly | USB stick `/mnt/backup-usb/` | ~once a week | 7 | long history, offline copy |
 
@@ -76,7 +76,7 @@ One-time setup requirements:
 
 Restore example:
 ```bash
-gunzip -c ~/backups/szafa/hourly_<ts>.sql.gz | docker exec -i szafa-db psql -U szafa_user -d szafa
+gunzip -c ~/Desktop/backups/szafa/hourly_<ts>.sql.gz | docker exec -i szafa-db psql -U szafa_user -d szafa
 ```
 
 ## Rebuilding the server from scratch

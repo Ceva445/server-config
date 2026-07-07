@@ -16,7 +16,11 @@ sudo cp "$REPO_DIR/backup.service" /etc/systemd/system/backup.service
 sudo cp "$REPO_DIR/backup.timer" /etc/systemd/system/backup.timer
 sudo systemctl daemon-reload
 sudo systemctl enable apps-startup.service
-sudo systemctl enable --now backup.timer
+# The backup timer is installed but NOT enabled yet (by owner's decision).
+# When ready to turn hourly backups on, run:
+#   sudo systemctl enable --now backup.timer
+# One-off manual run for testing:
+#   python3 /home/piatek/Desktop/apps/configs/backup.py
 
 echo "=== Updating cloudflared config ==="
 TUNNEL_SECRET="$REPO_DIR/cloudflared/tunnel-secret.yml"

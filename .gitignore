@@ -2,7 +2,11 @@
 wifi.txt
 healthcheck.txt
 cloudflared/tunnel-secret.yml
+gdrive-sa.json
 
 # startup.sh / backup.py run logs and state
 logs/
 backup_state.json
+
+# python cache
+__pycache__/

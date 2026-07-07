@@ -2,7 +2,7 @@
 """Database backups for all projects in ~/Desktop/apps.
 
 Tiers:
-  hourly -> local disk   (~/backups/<project>/hourly_*.sql.gz,  keep 48)
+  hourly -> local disk   (~/Desktop/backups/<project>/hourly_*.sql.gz, keep 48)
   daily  -> Google Drive (rclone remote, daily_*.sql.gz,        keep 30)
   weekly -> USB stick    (/mnt/backup-usb/<project>/weekly_*,   keep 7)
 
@@ -28,9 +28,27 @@ APPS_DIR = Path("/home/piatek/Desktop/apps")
 CONFIG_DIR = APPS_DIR / "configs"
 LOG_DIR = CONFIG_DIR / "logs"
 STATE_FILE = CONFIG_DIR / "backup_state.json"
-BACKUP_DIR = Path("/home/piatek/backups")
+# Local tier: a dedicated folder next to ~/Desktop/apps
+BACKUP_DIR = Path("/home/piatek/Desktop/backups")
+
+# Weekly tier: USB stick, auto-mounted via /etc/fstab (by UUID, with nofail).
 USB_DIR = Path("/mnt/backup-usb")
-RCLONE_REMOTE = "gdrive:ServerBackups"
+
+# Daily tier: Google Drive via rclone with a SERVICE ACCOUNT (no OAuth/browser).
+# One-time setup:
+#   1. Google Cloud Console -> enable Drive API -> create service account
+#      -> download JSON key -> scp it to the server, e.g.:
+#      /home/piatek/Desktop/apps/configs/gdrive-sa.json  (gitignored!)
+#   2. In Google Drive create folder "ServerBackups" and share it with the
+#      service account email (client_email in the JSON) as Editor.
+#   3. ~/.config/rclone/rclone.conf:
+#        [gdrive]
+#        type = drive
+#        scope = drive
+#        service_account_file = /home/piatek/Desktop/apps/configs/gdrive-sa.json
+#        root_folder_id = <ID of the ServerBackups folder from its URL>
+# root_folder_id already points inside ServerBackups, so the remote root is "gdrive:".
+RCLONE_REMOTE = "gdrive:"
 
 KEEP_HOURLY = 48
 KEEP_DAILY = 30
@@ -167,7 +185,7 @@ def daily_to_gdrive(name: str, dump: Path) -> bool:
     if not shutil.which("rclone"):
         error("rclone is not installed — daily tier skipped")
         return False
-    remote_dir = f"{RCLONE_REMOTE}/{name}"
+    remote_dir = f"{RCLONE_REMOTE}{name}"
     remote_file = f"{remote_dir}/daily_{TS}.sql.gz"
     result = run(["rclone", "copyto", str(dump), remote_file])
     if result.returncode != 0:
