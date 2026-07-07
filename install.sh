@@ -10,10 +10,13 @@ REPO_DIR="$(cd "$(dirname "$0")" && pwd)"
 echo "=== Installing startup.sh (executable) ==="
 chmod +x "$REPO_DIR/startup.sh"
 
-echo "=== Installing systemd unit ==="
+echo "=== Installing systemd units ==="
 sudo cp "$REPO_DIR/apps-startup.service" /etc/systemd/system/apps-startup.service
+sudo cp "$REPO_DIR/backup.service" /etc/systemd/system/backup.service
+sudo cp "$REPO_DIR/backup.timer" /etc/systemd/system/backup.timer
 sudo systemctl daemon-reload
 sudo systemctl enable apps-startup.service
+sudo systemctl enable --now backup.timer
 
 echo "=== Updating cloudflared config ==="
 TUNNEL_SECRET="$REPO_DIR/cloudflared/tunnel-secret.yml"

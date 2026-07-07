@@ -1,0 +1,12 @@
+[Unit]
+Description=Run database backups every hour
+
+[Timer]
+OnCalendar=hourly
+# if the server was off at the scheduled time, run right after boot
+Persistent=true
+# small random delay so it never races with apps-startup at boot
+RandomizedDelaySec=120
+
+[Install]
+WantedBy=timers.target

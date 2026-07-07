@@ -3,5 +3,6 @@ wifi.txt
 healthcheck.txt
 cloudflared/tunnel-secret.yml
 
-# startup.sh run logs
+# startup.sh / backup.py run logs and state
 logs/
+backup_state.json

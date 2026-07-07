@@ -1,0 +1,9 @@
+[Unit]
+Description=Database backups for projects in ~/Desktop/apps
+Requires=docker.service
+After=docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/python3 /home/piatek/Desktop/apps/configs/backup.py
+TimeoutStartSec=600

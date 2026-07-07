@@ -10,6 +10,8 @@ Configuration for the home server (NucBox, Ubuntu) hosting projects under the
 | `startup.sh` | Boot script: Wi-Fi → git pull → docker compose up --build → health check → logs/alerts |
 | `apps-startup.service` | systemd unit that runs `startup.sh` at boot |
 | `cloudflared/ingress.yml` | Tunnel ingress rules (subdomain → local port) |
+| `backup.py` | Hourly DB backups: local disk (48) → Google Drive daily (30) → USB weekly (7) |
+| `backup.service` + `backup.timer` | systemd timer that runs `backup.py` every hour |
 | `install.sh` | Deploys everything above onto the server |
 | `templates/` | Templates for secret configs (real ones live only on the server, never committed) |
 
@@ -53,6 +55,29 @@ bash install.sh
   (template: `templates/tunnel-secret.yml.example`); install.sh merges it with
   `cloudflared/ingress.yml` into `/etc/cloudflared/config.yml`.
 - Each project's `.env` — inside the project folder itself.
+
+## Backups
+
+`backup.timer` runs `backup.py` every hour:
+
+| Tier | Where | When | Kept | Protects against |
+|---|---|---|---|---|
+| hourly | `~/backups/<project>/` | every hour | 48 | accidental data deletion |
+| daily | Google Drive `gdrive:ServerBackups/` | ~once a day | 30 | disk/server loss |
+| weekly | USB stick `/mnt/backup-usb/` | ~once a week | 7 | long history, offline copy |
+
+Daily/weekly reuse the freshest hourly dump, so all tiers hold identical data.
+Scheduling state lives in `backup_state.json` (gitignored), so missed runs
+catch up after boot (`Persistent=true`). Failures are POSTed to the healthcheck URL.
+
+One-time setup requirements:
+- `rclone` installed and configured with a `gdrive` remote (`rclone config`).
+- USB stick mounted at `/mnt/backup-usb` via `/etc/fstab` (by UUID, with `nofail`).
+
+Restore example:
+```bash
+gunzip -c ~/backups/szafa/hourly_<ts>.sql.gz | docker exec -i szafa-db psql -U szafa_user -d szafa
+```
 
 ## Rebuilding the server from scratch
 
