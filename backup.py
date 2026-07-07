@@ -16,6 +16,7 @@ healthcheck URL from configs/healthcheck.txt (if set).
 """
 
 import gzip
+import hashlib
 import json
 import shutil
 import subprocess
@@ -144,8 +145,36 @@ def db_container_id(project: Path) -> str:
     return result.stdout.decode().strip() if result.returncode == 0 else ""
 
 
-def make_hourly_dump(project: Path) -> Path | None:
-    """pg_dump the project's db container into a gzipped local file."""
+def latest_hourly(name: str) -> Path | None:
+    files = sorted((BACKUP_DIR / name).glob("hourly_*.sql.gz"))
+    return files[-1] if files else None
+
+
+def dump_fingerprint(dump: bytes) -> str:
+    """sha256 of the dump content, ignoring lines that differ on every run.
+
+    pg_dump 17+ emits \\restrict / \\unrestrict lines with a RANDOM token each
+    time, so hashing the raw dump would never match. Those lines carry no data,
+    they are excluded from the fingerprint (but kept in the saved file).
+    """
+    hasher = hashlib.sha256()
+    for line in dump.splitlines():
+        if line.startswith(b"\\restrict") or line.startswith(b"\\unrestrict"):
+            continue
+        hasher.update(line)
+        hasher.update(b"\n")
+    return hasher.hexdigest()
+
+
+def make_hourly_dump(project: Path, state: dict) -> Path | None:
+    """pg_dump the project's db container into a gzipped local file.
+
+    Dedup: the sha256 of the UNCOMPRESSED dump is compared with the previous
+    run (stored in backup_state.json). If the database has not changed, no new
+    file is written and the newest existing hourly dump is reused — so 48 kept
+    files cover the last 48 real changes, not just the last 48 hours.
+    (Hashing the .gz would not work: gzip embeds a timestamp in its header.)
+    """
     name = project.name
     container = db_container_id(project)
     if not container:
@@ -159,17 +188,24 @@ def make_hourly_dump(project: Path) -> Path | None:
         error(f"{name}: POSTGRES_USER/POSTGRES_DB not found in .env")
         return None
 
-    dest_dir = BACKUP_DIR / name
-    dest_dir.mkdir(parents=True, exist_ok=True)
-    dest = dest_dir / f"hourly_{TS}.sql.gz"
-
     result = run(["docker", "exec", container, "pg_dump", "-U", db_user, db_name])
     if result.returncode != 0:
         error(f"{name}: pg_dump failed: {result.stderr.decode(errors='replace')[:500]}")
         return None
 
+    dump_hash = dump_fingerprint(result.stdout)
+    hashes = state.setdefault("last_hash", {})
+    previous = latest_hourly(name)
+    if previous is not None and hashes.get(name) == dump_hash:
+        log(f"{name}: no changes since last backup — skipped (reusing {previous.name})")
+        return previous
+
+    dest_dir = BACKUP_DIR / name
+    dest_dir.mkdir(parents=True, exist_ok=True)
+    dest = dest_dir / f"hourly_{TS}.sql.gz"
     with gzip.open(dest, "wb") as f:
         f.write(result.stdout)
+    hashes[name] = dump_hash
     log(f"{name}: hourly dump OK ({dest.stat().st_size} bytes) -> {dest}")
     return dest
 
@@ -237,7 +273,7 @@ def main() -> int:
 
     daily_ok = weekly_ok = True
     for project in find_projects():
-        dump = make_hourly_dump(project)
+        dump = make_hourly_dump(project, state)
         if dump is None:
             continue
         prune_local(BACKUP_DIR / project.name, "hourly", KEEP_HOURLY)
