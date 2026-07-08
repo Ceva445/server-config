@@ -7,4 +7,6 @@ ingress:
     service: http://localhost:8000
   - hostname: szafa.piatek-magazyn.com
     service: http://localhost:8001
+  - hostname: ai.piatek-magazyn.com
+    service: http://localhost:8002
   - service: http_status:404
