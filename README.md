@@ -10,7 +10,7 @@ Configuration for the home server (NucBox, Ubuntu) hosting projects under the
 | `startup.sh` | Boot script: Wi-Fi → git pull → docker compose up --build → health check → logs/alerts |
 | `apps-startup.service` | systemd unit that runs `startup.sh` at boot |
 | `cloudflared/ingress.yml` | Tunnel ingress rules (subdomain → local port) |
-| `backup.py` | Hourly DB backups: local disk (48) → Google Drive daily (30) → USB weekly (7) |
+| `backup.py` | Hourly DB backups to local disk + Google Drive + USB (48 copies each, dedup) |
 | `backup.service` + `backup.timer` | systemd timer that runs `backup.py` every hour |
 | `install.sh` | Deploys everything above onto the server |
 | `templates/` | Templates for secret configs (real ones live only on the server, never committed) |
@@ -58,17 +58,20 @@ bash install.sh
 
 ## Backups
 
-`backup.timer` runs `backup.py` every hour:
+`backup.timer` runs `backup.py` every hour. Each run stores the dump in ALL
+three destinations (48 copies kept in each):
 
-| Tier | Where | When | Kept | Protects against |
-|---|---|---|---|---|
-| hourly | `~/Desktop/backups/<project>/` | every hour | 48 | accidental data deletion |
-| daily | Google Drive `gdrive:ServerBackups/` | ~once a day | 30 | disk/server loss |
-| weekly | USB stick `/mnt/backup-usb/` | ~once a week | 7 | long history, offline copy |
+| Destination | Path | Protects against |
+|---|---|---|
+| Ubuntu disk | `~/Desktop/backups/<project>/` | accidental data deletion |
+| Google Drive | `gdrive:` (ServerBackups folder) | disk/server loss |
+| USB stick | `/mnt/backup-usb/<project>/` | offline copy |
 
-Daily/weekly reuse the freshest hourly dump, so all tiers hold identical data.
-Scheduling state lives in `backup_state.json` (gitignored), so missed runs
-catch up after boot (`Persistent=true`). Failures are POSTed to the healthcheck URL.
+Dedup: if the database content has not changed (sha256 fingerprint in
+`backup_state.json`), no new file is created — 48 copies means the last 48
+real changes, not the last 48 hours. Destinations are self-healing: every run
+re-checks that the newest dump exists in each place (a re-plugged USB stick
+catches up automatically). Failures are POSTed to the healthcheck URL.
 
 One-time setup requirements:
 - `rclone` installed and configured with a `gdrive` remote (`rclone config`).
@@ -76,7 +79,7 @@ One-time setup requirements:
 
 Restore example:
 ```bash
-gunzip -c ~/Desktop/backups/szafa/hourly_<ts>.sql.gz | docker exec -i szafa-db psql -U szafa_user -d szafa
+gunzip -c ~/Desktop/backups/szafa/backup_<ts>.sql.gz | docker exec -i szafa-db psql -U szafa_user -d szafa
 ```
 
 ## Rebuilding the server from scratch
