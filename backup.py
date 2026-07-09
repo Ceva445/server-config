@@ -35,19 +35,21 @@ BACKUP_DIR = Path("/home/piatek/Desktop/backups")
 # Weekly tier: USB stick, auto-mounted via /etc/fstab (by UUID, with nofail).
 USB_DIR = Path("/mnt/backup-usb")
 
-# Daily tier: Google Drive via rclone with a SERVICE ACCOUNT (no OAuth/browser).
+# Daily tier: Google Drive via rclone with an OAuth token.
+# NOTE: service accounts do NOT work here — since 2025 Google gives them zero
+# storage quota on personal accounts ("storageQuotaExceeded" on upload).
 # One-time setup:
-#   1. Google Cloud Console -> enable Drive API -> create service account
-#      -> download JSON key -> scp it to the server, e.g.:
-#      /home/piatek/Desktop/apps/configs/gdrive-sa.json  (gitignored!)
-#   2. In Google Drive create folder "ServerBackups" and share it with the
-#      service account email (client_email in the JSON) as Editor.
-#   3. ~/.config/rclone/rclone.conf:
+#   1. On any machine with a browser:  rclone authorize "drive"
+#      -> log in with the Google account that owns the ServerBackups folder
+#      -> copy the printed token JSON (one line).
+#   2. On the server, ~/.config/rclone/rclone.conf (chmod 600):
 #        [gdrive]
 #        type = drive
 #        scope = drive
-#        service_account_file = /home/piatek/Desktop/apps/configs/gdrive-sa.json
+#        token = {"access_token":"...","refresh_token":"...","expiry":"..."}
 #        root_folder_id = <ID of the ServerBackups folder from its URL>
+#   3. rclone refreshes the token automatically via refresh_token. If Google
+#      ever revokes it (password reset etc.) — just repeat steps 1-2.
 # root_folder_id already points inside ServerBackups, so the remote root is "gdrive:".
 RCLONE_REMOTE = "gdrive:"
 
