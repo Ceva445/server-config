@@ -210,10 +210,28 @@ def make_dump(project: Path, state: dict) -> Path | None:
     return dest
 
 
+def mount_usb() -> bool:
+    """Make sure the USB stick is mounted; try to mount it if not.
+
+    /etc/fstab has:  LABEL=bkp_pendr /mnt/backup-usb exfat defaults,nofail,user,...
+    - LABEL instead of UUID: any stick labelled bkp_pendr works (easy to swap)
+    - 'user' option: mounting does not require root, so both the systemd timer
+      and manual runs can mount it
+    So a stick re-plugged at any time is picked up by the next backup run.
+    """
+    if USB_DIR.is_mount():
+        return True
+    result = run(["mount", str(USB_DIR)])
+    if result.returncode == 0 and USB_DIR.is_mount():
+        log(f"USB stick mounted at {USB_DIR}")
+        return True
+    return False
+
+
 def ensure_on_usb(name: str, dump: Path) -> None:
     """Copy the newest dump to the USB stick unless it is already there."""
-    if not USB_DIR.is_mount():
-        error(f"USB stick is not mounted at {USB_DIR}")
+    if not mount_usb():
+        error(f"USB stick is not available at {USB_DIR} (not plugged in?)")
         return
     dest_dir = USB_DIR / name
     dest_dir.mkdir(parents=True, exist_ok=True)

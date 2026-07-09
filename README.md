@@ -75,7 +75,9 @@ catches up automatically). Failures are POSTed to the healthcheck URL.
 
 One-time setup requirements:
 - `rclone` installed and configured with a `gdrive` remote (`rclone config`).
-- USB stick mounted at `/mnt/backup-usb` via `/etc/fstab` (by UUID, with `nofail`).
+- USB stick labelled `bkp_pendr`, `/etc/fstab` entry (any stick with this label works;
+  `user` lets backup.py mount it without root, `nofail` keeps boot safe without it):
+  `LABEL=bkp_pendr /mnt/backup-usb exfat defaults,nofail,user,uid=1000,gid=1000,umask=022 0 0`
 
 Restore example:
 ```bash
