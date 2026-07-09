@@ -79,9 +79,30 @@ One-time setup requirements:
   `user` lets backup.py mount it without root, `nofail` keeps boot safe without it):
   `LABEL=bkp_pendr /mnt/backup-usb exfat defaults,nofail,user,uid=1000,gid=1000,umask=022 0 0`
 
-Restore example:
+### Restore
+
+Works for ANY project — set `PROJECT` to its folder name in `~/Desktop/apps`.
+The DB container, user and database are read automatically from the project's
+compose setup and `.env`, so nothing is hard-coded per project.
+
+Restore the latest backup into the LIVE database (WARNING: overwrites current data):
 ```bash
-gunzip -c ~/Desktop/backups/szafa/backup_<ts>.sql.gz | docker exec -i szafa-db psql -U szafa_user -d szafa
+PROJECT=<folder-name-in-~/Desktop/apps>
+cd ~/Desktop/apps/$PROJECT
+eval "$(grep -E '^POSTGRES_(USER|DB)=' .env)"
+LATEST=$(ls -t ~/Desktop/backups/$PROJECT/*.sql.gz | head -1)
+gunzip -c "$LATEST" | docker exec -i "$(docker compose ps -q db)" \
+    psql -U "$POSTGRES_USER" -d "$POSTGRES_DB"
+```
+To restore a specific (not the latest) backup, replace `$LATEST` with the path
+to the chosen `backup_<ts>.sql.gz`. The same dumps also live on the USB stick
+(`/mnt/backup-usb/$PROJECT/`) and Google Drive (`gdrive:$PROJECT/`).
+
+Safe test restore (does NOT touch production — spins up a throwaway Postgres,
+restores the latest dump, compares per-table row counts with the live DB, then
+removes the temp container):
+```bash
+bash restore_test.sh <folder-name-in-~/Desktop/apps>
 ```
 
 ## Rebuilding the server from scratch
