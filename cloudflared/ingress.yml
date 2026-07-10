@@ -9,4 +9,6 @@ ingress:
     service: http://localhost:8001
   - hostname: ai.piatek-magazyn.com
     service: http://localhost:8002
+  - hostname: saldo.piatek-magazyn.com
+    service: http://localhost:8003
   - service: http_status:404
