@@ -13,4 +13,6 @@ ingress:
     service: http://localhost:8003
   - hostname: zwroty.piatek-magazyn.com
     service: http://localhost:8004
+  - hostname: delivery.piatek-magazyn.com
+    service: http://localhost:8005
   - service: http_status:404
