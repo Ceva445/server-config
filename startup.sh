@@ -21,17 +21,36 @@ check_internet() {
 }
 
 # ---------- 1. Internet / Wi-Fi ----------
+# wifi.txt may list several networks (SSID/PASSWORD pairs), tried in order.
+# The first one that gives internet wins — a fallback network is used if the
+# primary one is not found (e.g. moved to a different site/router).
+try_wifi_networks() {
+    local ssid="" pass=""
+    while IFS= read -r line || [ -n "$line" ]; do
+        case "$line" in
+            SSID=*)     ssid="${line#SSID=}" ;;
+            PASSWORD=*) pass="${line#PASSWORD=}"
+                        if [ -n "$ssid" ]; then
+                            log "Trying Wi-Fi \"$ssid\""
+                            nmcli dev wifi connect "$ssid" password "$pass" >>"$STARTUP_LOG" 2>&1
+                            sleep 8
+                            if check_internet; then
+                                log "Connected to \"$ssid\""
+                                return 0
+                            fi
+                            ssid=""; pass=""
+                        fi ;;
+        esac
+    done < "$CONFIG_DIR/wifi.txt"
+    return 1
+}
+
 if ! check_internet && [ -f "$CONFIG_DIR/wifi.txt" ]; then
-    SSID=$(grep '^SSID=' "$CONFIG_DIR/wifi.txt" | cut -d= -f2-)
-    PASSWORD=$(grep '^PASSWORD=' "$CONFIG_DIR/wifi.txt" | cut -d= -f2-)
-    for attempt in $(seq 1 10); do
-        log "No internet, attempt $attempt/10: connecting to Wi-Fi \"$SSID\""
-        nmcli dev wifi connect "$SSID" password "$PASSWORD" >>"$STARTUP_LOG" 2>&1
+    # repeat the whole list a few times — the router may still be booting
+    for attempt in $(seq 1 5); do
+        log "No internet — trying configured Wi-Fi networks (round $attempt/5)"
+        try_wifi_networks && break
         sleep 10
-        if check_internet; then
-            log "Internet is up"
-            break
-        fi
     done
 fi
 
