@@ -19,12 +19,17 @@ healthcheck URL from configs/healthcheck.txt (if set).
 import gzip
 import hashlib
 import json
+import os
 import shutil
 import subprocess
 import sys
 import urllib.request
 from datetime import datetime
 from pathlib import Path
+
+# The systemd service runs as root, but the rclone config lives in piatek's home.
+# Point rclone at it explicitly so Google Drive uploads work regardless of user.
+os.environ.setdefault("RCLONE_CONFIG", "/home/piatek/.config/rclone/rclone.conf")
 
 APPS_DIR = Path("/home/piatek/Desktop/apps")
 CONFIG_DIR = APPS_DIR / "configs"
@@ -136,9 +141,12 @@ def post_healthcheck(subject: str, body: str) -> None:
 
 
 def find_projects() -> list[Path]:
+    def has_compose(p: Path) -> bool:
+        # some projects use docker-compose.yaml, others docker-compose.yml
+        return (p / "docker-compose.yml").exists() or (p / "docker-compose.yaml").exists()
     return [
         path for path in sorted(APPS_DIR.iterdir())
-        if path.is_dir() and path.name != "configs" and (path / "docker-compose.yml").exists()
+        if path.is_dir() and path.name != "configs" and has_compose(path)
     ]
 
 
