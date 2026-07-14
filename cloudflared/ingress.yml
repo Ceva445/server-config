@@ -17,4 +17,6 @@ ingress:
     service: http://localhost:8005
   - hostname: recive.piatek-magazyn.com
     service: http://localhost:8006
+  - hostname: cups.piatek-magazyn.com
+    service: http://localhost:8007
   - service: http_status:404
