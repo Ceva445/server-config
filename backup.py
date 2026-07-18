@@ -293,7 +293,8 @@ def sync_to_neon(project: Path, dump: Path, state: dict) -> None:
     Once a day, or immediately when started with --neon-now.
     """
     name = project.name
-    neon_url = read_env(project / ".env").get("NEON_SYNC_URL", "").strip().strip("'\"")
+    env = read_env(project / ".env")
+    neon_url = env.get("NEON_SYNC_URL", "").strip().strip("'\"")
     if not neon_url:
         return  # not configured for this project (e.g. cups) — nothing to do
 
@@ -331,6 +332,32 @@ def sync_to_neon(project: Path, dump: Path, state: dict) -> None:
     )
     if restore.returncode != 0:
         error(f"{name}: Neon restore failed: {restore.stderr.decode(errors='replace')[:300]}")
+        return
+
+    # psql exits 0 even when individual statements fail, so verify the result:
+    # compare how many tables ended up in Neon with the local database.
+    # (ON_ERROR_STOP cannot be used here — a PG17 dump restored into Neon's
+    #  PG16 always errors on the unknown "transaction_timeout" SET, harmlessly.)
+    count_sql = ("SELECT count(*) FROM information_schema.tables "
+                 "WHERE table_schema='public'")
+
+    def table_count(*psql_args: str) -> int:
+        result = run(["docker", "exec", container, "psql", *psql_args,
+                      "-t", "-A", "-c", count_sql])
+        try:
+            return int(result.stdout.decode().strip())
+        except ValueError:
+            return -1
+
+    neon_tables = table_count(neon_url)
+    local_tables = table_count("-U", env.get("POSTGRES_USER", ""),
+                               "-d", env.get("POSTGRES_DB", ""))
+    if neon_tables <= 0:
+        error(f"{name}: Neon restore produced no tables — sync failed")
+        return
+    if local_tables > 0 and neon_tables != local_tables:
+        error(f"{name}: Neon has {neon_tables} tables, local has {local_tables} "
+              f"— sync incomplete")
         return
 
     last_sync[name] = datetime.now().isoformat()
