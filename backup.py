@@ -20,11 +20,12 @@ import gzip
 import hashlib
 import json
 import os
+import shlex
 import shutil
 import subprocess
 import sys
 import urllib.request
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 
 # The systemd service runs as root, but the rclone config lives in piatek's home.
@@ -65,6 +66,15 @@ USB_DIR = Path("/mnt/backup-usb")
 KEEP_LOCAL = 48
 KEEP_GDRIVE = 48
 KEEP_USB = 48
+
+# Destination 4: the project's OLD Neon cloud database, kept as a mirror.
+# Enabled per project by an active NEON_SYNC_URL=... line in that project's
+# .env — projects without it (e.g. cups) are simply skipped.
+# WARNING: a sync DROPs the public schema in Neon and replaces it with the
+# freshest local dump, so Neon must not be written to by anything else.
+# Runs once a day; force it any time with:  python3 backup.py --neon-now
+NEON_SYNC_EVERY = timedelta(hours=23)
+FORCE_NEON = "--neon-now" in sys.argv
 
 TS = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
 LOG_FILE = LOG_DIR / f"backup_{TS}.log"
@@ -276,6 +286,57 @@ def ensure_on_gdrive(name: str, dump: Path) -> None:
         log(f"{name}: pruned Drive {old}")
 
 
+def sync_to_neon(project: Path, dump: Path, state: dict) -> None:
+    """Mirror the freshest local dump into the project's old Neon database.
+
+    Opt-in per project: only runs when the project's .env defines NEON_SYNC_URL.
+    Once a day, or immediately when started with --neon-now.
+    """
+    name = project.name
+    neon_url = read_env(project / ".env").get("NEON_SYNC_URL", "").strip().strip("'\"")
+    if not neon_url:
+        return  # not configured for this project (e.g. cups) — nothing to do
+
+    last_sync = state.setdefault("last_neon_sync", {})
+    if not FORCE_NEON:
+        previous = last_sync.get(name)
+        if previous:
+            try:
+                if datetime.now() - datetime.fromisoformat(previous) < NEON_SYNC_EVERY:
+                    return  # already synced recently
+            except ValueError:
+                pass
+
+    container = db_container_id(project)
+    if not container:
+        error(f"{name}: cannot sync to Neon — no running 'db' service")
+        return
+    # safety net: never wipe Neon using an empty/broken dump
+    if dump.stat().st_size < 100:
+        error(f"{name}: refusing to sync a suspiciously small dump to Neon")
+        return
+
+    log(f"{name}: syncing to Neon...")
+    wipe = run(["docker", "exec", container, "psql", neon_url,
+                "-v", "ON_ERROR_STOP=1",
+                "-c", "DROP SCHEMA public CASCADE; CREATE SCHEMA public;"])
+    if wipe.returncode != 0:
+        error(f"{name}: Neon wipe failed: {wipe.stderr.decode(errors='replace')[:300]}")
+        return
+
+    restore = subprocess.run(
+        f"gunzip -c {shlex.quote(str(dump))} "
+        f"| docker exec -i {container} psql {shlex.quote(neon_url)}",
+        shell=True, capture_output=True,
+    )
+    if restore.returncode != 0:
+        error(f"{name}: Neon restore failed: {restore.stderr.decode(errors='replace')[:300]}")
+        return
+
+    last_sync[name] = datetime.now().isoformat()
+    log(f"{name}: Neon updated from {dump.name}")
+
+
 def main() -> int:
     state = load_state()
     log("Backup run started")
@@ -286,6 +347,7 @@ def main() -> int:
             continue
         ensure_on_usb(project.name, dump)
         ensure_on_gdrive(project.name, dump)
+        sync_to_neon(project, dump, state)
 
     save_state(state)
 

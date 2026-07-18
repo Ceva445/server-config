@@ -73,6 +73,25 @@ real changes, not the last 48 hours. Destinations are self-healing: every run
 re-checks that the newest dump exists in each place (a re-plugged USB stick
 catches up automatically). Failures are POSTed to the healthcheck URL.
 
+### Neon mirror (4th destination, once a day)
+
+The freshest local dump is also pushed back into each project's OLD Neon cloud
+database, keeping it as an up-to-date mirror.
+
+- **Opt-in per project**: only runs when the project's `.env` has an active
+  `NEON_SYNC_URL=postgresql://...` line. Projects without it (e.g. **cups**) are
+  skipped — that is how cups stays excluded.
+- **Once a day** (23h interval, tracked per project in `backup_state.json`) so the
+  Neon free-tier compute quota is not burned by hourly writes.
+- **Manual trigger** — sync Neon right now, ignoring the daily interval:
+  ```bash
+  cd ~/Desktop/apps/configs
+  sudo python3 backup.py --neon-now
+  ```
+- ⚠️ **A sync overwrites Neon**: it runs `DROP SCHEMA public CASCADE` and restores
+  the dump. Neon is a mirror only — nothing else may write to it. A dump smaller
+  than 100 bytes is refused, so a broken dump can never wipe Neon.
+
 One-time setup requirements:
 - `rclone` installed and configured with a `gdrive` remote (`rclone config`).
 - USB stick labelled `bkp_pendr`, `/etc/fstab` entry (any stick with this label works;
