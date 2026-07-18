@@ -19,4 +19,6 @@ ingress:
     service: http://localhost:8006
   - hostname: cups.piatek-magazyn.com
     service: http://localhost:8007
+  - hostname: langup.piatek-magazyn.com
+    service: http://localhost:8008
   - service: http_status:404
