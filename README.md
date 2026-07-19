@@ -81,8 +81,8 @@ database, keeping it as an up-to-date mirror.
 - **Opt-in per project**: only runs when the project's `.env` has an active
   `NEON_SYNC_URL=postgresql://...` line. Projects without it (e.g. **cups**) are
   skipped — that is how cups stays excluded.
-- **Once a day** (23h interval, tracked per project in `backup_state.json`) so the
-  Neon free-tier compute quota is not burned by hourly writes.
+- **Every 4 hours** (interval tracked per project in `backup_state.json`): the timer
+  fires hourly, but a project is pushed to Neon only once its interval has elapsed.
 - **Manual trigger** — sync Neon right now, ignoring the daily interval:
   ```bash
   cd ~/Desktop/apps/configs

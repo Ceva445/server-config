@@ -72,8 +72,8 @@ KEEP_USB = 48
 # .env — projects without it (e.g. cups) are simply skipped.
 # WARNING: a sync DROPs the public schema in Neon and replaces it with the
 # freshest local dump, so Neon must not be written to by anything else.
-# Runs once a day; force it any time with:  python3 backup.py --neon-now
-NEON_SYNC_EVERY = timedelta(hours=23)
+# Runs every 4 hours; force it any time with:  python3 backup.py --neon-now
+NEON_SYNC_EVERY = timedelta(hours=4)
 FORCE_NEON = "--neon-now" in sys.argv
 
 TS = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
