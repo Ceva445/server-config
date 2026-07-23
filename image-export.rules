@@ -1,0 +1,5 @@
+# Start the image-export service when a USB storage partition (with a filesystem)
+# is plugged in. The service runs image_export.sh, which does nothing unless the
+# drive carries the marker file image_export.yml — so ordinary sticks and the
+# backup stick (bkp_pendr) are ignored.
+ACTION=="add", SUBSYSTEM=="block", ENV{ID_BUS}=="usb", ENV{DEVTYPE}=="partition", ENV{ID_FS_USAGE}=="filesystem", TAG+="systemd", ENV{SYSTEMD_WANTS}+="image-export@%k.service"

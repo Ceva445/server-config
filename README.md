@@ -111,6 +111,26 @@ not to local disk or Google Drive.
   sudo python3 backup.py --media-now
   ```
 
+### Image export to a plugged-in drive (udev trigger)
+
+Plug a USB drive in → if it carries a marker file, ALL project images are copied
+onto it automatically. For handing a full image set to an admin on the spot.
+
+- **How it works**: `image-export.rules` (udev) fires on USB-partition insert and
+  starts `image-export@<dev>.service`, which runs `image_export.sh`.
+- **Opt-in marker**: the drive must have an empty file **`image_export.yml`** at its
+  root. Without it the script does nothing — ordinary sticks and the backup stick
+  `bkp_pendr` are ignored.
+- **Never deletes**: `rsync -a` **without** `--delete` — existing files on the drive
+  stay, only missing/changed ones are added (so re-plugging tops it up incrementally).
+  The server media is only read.
+- **Copies**: full `media/` of `delivery_plus` and `recive-stock` (all history) into
+  `image_export/<project>/...` on the drive.
+- **Progress/result**: written to `image_export.log` on the drive itself (and to the
+  system journal: `journalctl -t image-export`).
+- **Format the drive** as exFAT/ext4 (not FAT32 — for large sets). Create the marker:
+  `touch /media/<drive>/image_export.yml`.
+
 One-time setup requirements:
 - `rclone` installed and configured with a `gdrive` remote (`rclone config`).
 - USB stick labelled `bkp_pendr`, `/etc/fstab` entry (any stick with this label works;

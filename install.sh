@@ -14,8 +14,16 @@ echo "=== Installing systemd units ==="
 sudo cp "$REPO_DIR/apps-startup.service" /etc/systemd/system/apps-startup.service
 sudo cp "$REPO_DIR/backup.service" /etc/systemd/system/backup.service
 sudo cp "$REPO_DIR/backup.timer" /etc/systemd/system/backup.timer
+sudo cp "$REPO_DIR/image-export@.service" /etc/systemd/system/image-export@.service
 sudo systemctl daemon-reload
 sudo systemctl enable apps-startup.service
+
+echo "=== Installing image-export udev rule ==="
+# Plug in a USB drive that has image_export.yml at its root -> all project
+# images are copied onto it (incremental, never deletes anything).
+chmod +x "$REPO_DIR/image_export.sh"
+sudo cp "$REPO_DIR/image-export.rules" /etc/udev/rules.d/99-image-export.rules
+sudo udevadm control --reload-rules
 # The backup timer is installed but NOT enabled yet (by owner's decision).
 # When ready to turn hourly backups on, run:
 #   sudo systemctl enable --now backup.timer

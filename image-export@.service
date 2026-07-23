@@ -1,0 +1,9 @@
+[Unit]
+Description=Copy project images to a plugged-in export drive (%i)
+# %i is the kernel device name passed by the udev rule (e.g. sdb1)
+
+[Service]
+Type=oneshot
+# runs as root (udev-triggered) so it can mount and read the media dirs
+ExecStart=/home/piatek/Desktop/apps/configs/image_export.sh %i
+TimeoutStartSec=7200
