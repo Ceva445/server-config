@@ -131,6 +131,54 @@ onto it automatically. For handing a full image set to an admin on the spot.
 - **Format the drive** as exFAT/ext4 (not FAT32 — for large sets). Create the marker:
   `touch /media/<drive>/image_export.yml`.
 
+#### How the trigger is wired (for future reference)
+
+A 3-part chain: **udev → systemd → script**. udev has a strict timeout and *kills*
+long-running processes spawned directly from a rule, so it must NOT run the copy
+itself — it only hands off to a systemd unit, which does the real work.
+
+1. **udev rule** — `image-export.rules` → `/etc/udev/rules.d/99-image-export.rules`:
+   ```
+   ACTION=="add", SUBSYSTEM=="block", ENV{ID_BUS}=="usb", ENV{DEVTYPE}=="partition",
+   ENV{ID_FS_USAGE}=="filesystem", TAG+="systemd", ENV{SYSTEMD_WANTS}+="image-export@%k.service"
+   ```
+   - `ACTION=="add"` — only on plug-in, not removal.
+   - `ID_BUS==usb` + `DEVTYPE==partition` + `ID_FS_USAGE==filesystem` — only a USB
+     partition that has a filesystem (internal NVMe etc. never match).
+   - `%k` — the kernel device name (e.g. `sdb1`); it becomes the systemd instance,
+     so the unit started is `image-export@sdb1.service`.
+   - `TAG+="systemd"` + `SYSTEMD_WANTS+=` is the supported way for udev to start a
+     unit (better than `RUN+="systemctl start"`, which udev would kill).
+
+2. **systemd template unit** — `image-export@.service` → `/etc/systemd/system/`:
+   ```
+   [Service]
+   Type=oneshot
+   ExecStart=/home/piatek/Desktop/apps/configs/image_export.sh %i
+   TimeoutStartSec=7200
+   ```
+   `%i` is the instance (`sdb1`), passed to the script as its argument. Runs as root
+   (udev-triggered), so it can mount and read the media dirs.
+
+3. **script** — `image_export.sh <dev>`: skips the `bkp_pendr` backup stick, mounts
+   the device, and only proceeds if `image_export.yml` is at its root; then
+   `rsync -a` (no `--delete`) each project's `media/` onto it and unmounts.
+
+Install (also done by `install.sh`):
+```bash
+sudo cp image-export@.service /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo cp image-export.rules /etc/udev/rules.d/99-image-export.rules
+sudo udevadm control --reload-rules
+```
+Debug / test:
+```bash
+journalctl -t image-export -f                 # live log of the script
+systemctl status 'image-export@sdb1.service'  # last run for a device
+udevadm monitor --subsystem-match=block       # watch add/remove events live
+sudo image_export.sh sdb1                      # run the script manually
+```
+
 One-time setup requirements:
 - `rclone` installed and configured with a `gdrive` remote (`rclone config`).
 - USB stick labelled `bkp_pendr`, `/etc/fstab` entry (any stick with this label works;
