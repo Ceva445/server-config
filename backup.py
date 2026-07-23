@@ -76,6 +76,16 @@ KEEP_USB = 48
 NEON_SYNC_EVERY = timedelta(hours=4)
 FORCE_NEON = "--neon-now" in sys.argv
 
+# Image (media) backups — USB stick ONLY (not disk, not Google Drive).
+# Only the last MEDIA_KEEP_MONTHS of images are kept; folders are dated
+# media/YYYY/MM/DD, so retention is by folder name, not file mtime (a downloaded
+# file's mtime is the download time, not the photo date). Runs once a day;
+# force it any time with:  python3 backup.py --media-now
+MEDIA_BACKUP_PROJECTS = ("delivery_plus", "recive-stock")
+MEDIA_KEEP_MONTHS = 6
+MEDIA_SYNC_EVERY = timedelta(hours=23)
+FORCE_MEDIA = "--media-now" in sys.argv
+
 TS = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
 LOG_FILE = LOG_DIR / f"backup_{TS}.log"
 
@@ -364,6 +374,77 @@ def sync_to_neon(project: Path, dump: Path, state: dict) -> None:
     log(f"{name}: Neon updated from {dump.name}")
 
 
+def _recent_months(n: int) -> set:
+    """Set of 'YYYY/MM' strings for the current month and the previous n-1."""
+    y, m = datetime.now().year, datetime.now().month
+    months = set()
+    for _ in range(n):
+        months.add(f"{y:04d}/{m:02d}")
+        m -= 1
+        if m == 0:
+            m, y = 12, y - 1
+    return months
+
+
+def backup_media_to_usb(name: str, state: dict) -> None:
+    """Mirror the last MEDIA_KEEP_MONTHS of a project's images to the USB stick.
+
+    USB is the ONLY destination for images (not local disk, not Google Drive).
+    Runs once a day per project (or immediately with --media-now).
+    """
+    src = APPS_DIR / name / "media"
+    if not src.is_dir():
+        return
+
+    last_media = state.setdefault("last_media_sync", {})
+    if not FORCE_MEDIA:
+        previous = last_media.get(name)
+        if previous:
+            try:
+                if datetime.now() - datetime.fromisoformat(previous) < MEDIA_SYNC_EVERY:
+                    return  # synced recently
+            except ValueError:
+                pass
+
+    if not mount_usb():
+        error(f"{name}: USB not available — media backup skipped")
+        return
+
+    dest = USB_DIR / "media" / name
+    dest.mkdir(parents=True, exist_ok=True)
+    keep = _recent_months(MEDIA_KEEP_MONTHS)
+
+    log(f"{name}: syncing images to USB (last {MEDIA_KEEP_MONTHS} months)...")
+
+    # 1) incremental copy of the kept months (rsync copies only new/changed)
+    ok = True
+    for ym in sorted(keep):
+        s = src / ym
+        if not s.is_dir():
+            continue
+        d = dest / ym
+        d.mkdir(parents=True, exist_ok=True)
+        result = run(["rsync", "-a", "--delete", f"{s}/", f"{d}/"])
+        if result.returncode != 0:
+            ok = False
+            error(f"{name}: media rsync failed for {ym}: "
+                  f"{result.stderr.decode(errors='replace')[:200]}")
+
+    # 2) retention: drop month folders on the USB outside the keep window
+    for year_dir in sorted(dest.glob("[0-9][0-9][0-9][0-9]")):
+        for month_dir in sorted(year_dir.glob("[0-9][0-9]")):
+            ym = f"{year_dir.name}/{month_dir.name}"
+            if ym not in keep:
+                shutil.rmtree(month_dir, ignore_errors=True)
+                log(f"{name}: pruned old media {ym} from USB")
+        if not any(year_dir.iterdir()):
+            year_dir.rmdir()
+
+    if ok:
+        last_media[name] = datetime.now().isoformat()
+        log(f"{name}: images synced to USB")
+
+
 def main() -> int:
     state = load_state()
     log("Backup run started")
@@ -375,6 +456,10 @@ def main() -> int:
         ensure_on_usb(project.name, dump)
         ensure_on_gdrive(project.name, dump)
         sync_to_neon(project, dump, state)
+
+    # image (media) backups — USB only, last 6 months
+    for name in MEDIA_BACKUP_PROJECTS:
+        backup_media_to_usb(name, state)
 
     save_state(state)
 

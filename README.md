@@ -92,6 +92,25 @@ database, keeping it as an up-to-date mirror.
   the dump. Neon is a mirror only — nothing else may write to it. A dump smaller
   than 100 bytes is refused, so a broken dump can never wipe Neon.
 
+### Image (media) backups — USB stick only
+
+`delivery_plus` and `recive-stock` store uploaded photos on disk in
+`media/YYYY/MM/DD/`. Those images are mirrored to the USB stick — **only** there,
+not to local disk or Google Drive.
+
+- **Projects**: `MEDIA_BACKUP_PROJECTS` in `backup.py` (delivery_plus, recive-stock).
+- **Retention**: last `MEDIA_KEEP_MONTHS` (6) months. Kept/pruned by folder date
+  (`YYYY/MM`), not file mtime — a downloaded file's mtime is the download time,
+  not the photo date. Older month folders are removed from the USB.
+- **Once a day** per project (tracked in `backup_state.json`); the copy is
+  incremental (`rsync -a --delete`), so after the first run only new photos move.
+- **USB path**: `/mnt/backup-usb/media/<project>/YYYY/MM/DD/...`
+- **Manual trigger**:
+  ```bash
+  cd ~/Desktop/apps/configs
+  sudo python3 backup.py --media-now
+  ```
+
 One-time setup requirements:
 - `rclone` installed and configured with a `gdrive` remote (`rclone config`).
 - USB stick labelled `bkp_pendr`, `/etc/fstab` entry (any stick with this label works;
