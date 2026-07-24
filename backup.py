@@ -83,7 +83,7 @@ FORCE_NEON = "--neon-now" in sys.argv
 # force it any time with:  python3 backup.py --media-now
 MEDIA_BACKUP_PROJECTS = ("delivery_plus", "recive-stock")
 MEDIA_KEEP_MONTHS = 6
-MEDIA_SYNC_EVERY = timedelta(hours=23)
+MEDIA_SYNC_EVERY = timedelta(hours=3)
 FORCE_MEDIA = "--media-now" in sys.argv
 
 TS = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
