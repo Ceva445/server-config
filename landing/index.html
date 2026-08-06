@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="pl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Piątek Magazyn</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📦</text></svg>">
+  <style>
+    :root{
+      --bg:#f4f6fb; --card:#ffffff; --text:#1f2733; --muted:#6b7686;
+      --border:#e6eaf1; --accent:#3b5bdb; --accent-soft:#eef2ff; --shadow:rgba(20,30,60,.08);
+    }
+    @media (prefers-color-scheme: dark){
+      :root{
+        --bg:#0f1420; --card:#171e2e; --text:#e8ecf3; --muted:#95a1b5;
+        --border:#242d40; --accent:#7b93ff; --accent-soft:#1c2540; --shadow:rgba(0,0,0,.35);
+      }
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0; min-height:100vh; background:var(--bg); color:var(--text);
+      font-family:system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+      display:flex; flex-direction:column; align-items:center;
+      padding:clamp(24px,6vw,72px) 20px;
+    }
+    header{max-width:960px; width:100%; text-align:center; margin-bottom:clamp(28px,5vw,52px)}
+    .logo{font-size:clamp(40px,9vw,64px); line-height:1}
+    h1{margin:.35em 0 .15em; font-size:clamp(26px,5vw,38px); letter-spacing:-.02em}
+    header p{margin:0; color:var(--muted); font-size:clamp(14px,2.5vw,17px)}
+    .grid{
+      max-width:960px; width:100%;
+      display:grid; gap:18px;
+      grid-template-columns:repeat(auto-fill,minmax(230px,1fr));
+    }
+    .card{
+      display:flex; flex-direction:column; gap:6px;
+      background:var(--card); border:1px solid var(--border); border-radius:16px;
+      padding:22px 22px 20px; text-decoration:none; color:inherit;
+      box-shadow:0 1px 2px var(--shadow);
+      transition:transform .15s ease, box-shadow .15s ease, border-color .15s ease;
+    }
+    .card:hover{
+      transform:translateY(-3px);
+      box-shadow:0 10px 26px var(--shadow);
+      border-color:var(--accent);
+    }
+    .icon{
+      width:46px; height:46px; border-radius:12px; margin-bottom:8px;
+      display:grid; place-items:center; font-size:24px;
+      background:var(--accent-soft);
+    }
+    .name{font-size:18px; font-weight:650; letter-spacing:-.01em}
+    .desc{color:var(--muted); font-size:14px; line-height:1.4}
+    .url{margin-top:8px; color:var(--accent); font-size:13px; font-weight:600; word-break:break-all}
+    footer{margin-top:clamp(32px,6vw,56px); color:var(--muted); font-size:13px}
+  </style>
+</head>
+<body>
+  <header>
+    <div class="logo">📦</div>
+    <h1>Piątek Magazyn</h1>
+    <p>Panel projektów — wybierz aplikację</p>
+  </header>
+
+  <main class="grid">
+    <a class="card" href="https://pinokio.piatek-magazyn.com">
+      <div class="icon">📟</div>
+      <div class="name">Pinokio</div>
+      <div class="desc">Monitoring urządzeń ESP32 (skanery, drukarki)</div>
+      <div class="url">pinokio.piatek-magazyn.com</div>
+    </a>
+
+    <a class="card" href="https://szafa.piatek-magazyn.com">
+      <div class="icon">🗄️</div>
+      <div class="name">Szafa</div>
+      <div class="desc">System magazynowy — pracownicy i urządzenia</div>
+      <div class="url">szafa.piatek-magazyn.com</div>
+    </a>
+
+    <a class="card" href="https://saldo.piatek-magazyn.com">
+      <div class="icon">📊</div>
+      <div class="name">Saldo Palet</div>
+      <div class="desc">Saldo palet EUR — dostawcy i transakcje</div>
+      <div class="url">saldo.piatek-magazyn.com</div>
+    </a>
+
+    <a class="card" href="https://zwroty.piatek-magazyn.com">
+      <div class="icon">↩️</div>
+      <div class="name">Zwroty</div>
+      <div class="desc">Zwroty i stany magazynowe</div>
+      <div class="url">zwroty.piatek-magazyn.com</div>
+    </a>
+
+    <a class="card" href="https://delivery.piatek-magazyn.com/delivery/">
+      <div class="icon">🚚</div>
+      <div class="name">Delivery</div>
+      <div class="desc">Dostawy i zdjęcia zwrotów</div>
+      <div class="url">delivery.piatek-magazyn.com/delivery/</div>
+    </a>
+
+    <a class="card" href="https://recive.piatek-magazyn.com/delivery-stock/">
+      <div class="icon">📥</div>
+      <div class="name">Recive</div>
+      <div class="desc">Przyjęcia towaru</div>
+      <div class="url">recive.piatek-magazyn.com/delivery-stock/</div>
+    </a>
+
+    <a class="card" href="https://cups.piatek-magazyn.com/admin/">
+      <div class="icon">🏷️</div>
+      <div class="name">CUPS</div>
+      <div class="desc">Generator etykiet (WZ, kody)</div>
+      <div class="url">cups.piatek-magazyn.com/admin/</div>
+    </a>
+  </main>
+
+  <footer>© Piątek Magazyn</footer>
+</body>
+</html>

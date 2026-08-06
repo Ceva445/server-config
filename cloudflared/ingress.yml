@@ -21,4 +21,7 @@ ingress:
     service: http://localhost:8007
   - hostname: langup.piatek-magazyn.com
     service: http://localhost:8008
+  # apex domain -> landing page (project list)
+  - hostname: piatek-magazyn.com
+    service: http://localhost:8009
   - service: http_status:404

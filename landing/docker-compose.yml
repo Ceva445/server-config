@@ -1,0 +1,16 @@
+services:
+
+  web:
+    image: nginx:alpine
+
+    container_name: landing-web
+
+    # 8009 on host (apex piatek-magazyn.com -> localhost:8009 via the tunnel)
+    ports:
+      - "8009:80"
+
+    volumes:
+      # single static page, served read-only; edit index.html + git pull to update
+      - ./index.html:/usr/share/nginx/html/index.html:ro
+
+    restart: unless-stopped

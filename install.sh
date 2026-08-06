@@ -50,6 +50,12 @@ else
     rm -f "$TMP_CONFIG"
 fi
 
+echo "=== Landing page (apex piatek-magazyn.com) ==="
+# Expose landing/ as ~/Desktop/apps/landing so startup.sh brings it up like any
+# other project. A symlink keeps it in git (git pull configs -> page updates).
+ln -sfn "$REPO_DIR/landing" /home/piatek/Desktop/apps/landing
+echo "landing symlinked -> $REPO_DIR/landing"
+
 echo "=== Config templates (if real ones are missing) ==="
 [ -f "$REPO_DIR/wifi.txt" ] || cp "$REPO_DIR/templates/wifi.txt.example" "$REPO_DIR/wifi.txt"
 [ -f "$REPO_DIR/healthcheck.txt" ] || touch "$REPO_DIR/healthcheck.txt"
