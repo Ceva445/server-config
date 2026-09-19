@@ -20,7 +20,9 @@ Configuration for the home server (NucBox, Ubuntu) hosting projects under the
 - Each project is a folder in `~/Desktop/apps/<name>` with its own `docker-compose.yml`
   (a dedicated app container + a dedicated Postgres).
 - This repository lives on the server at `~/Desktop/apps/configs` (excluded from the project loop).
-- Ports: pinokio → 8000, szafa → 8001; next project → 8002 and so on.
+- Ports: pinokio → 8000, szafa → 8001, ai → 8002, saldo → 8003, zwroty → 8004, delivery → 8005,
+  recive → 8006, cups → 8007, langup → 8008, landing (apex) → 8009, ecom-zwroty → 8010;
+  next project → 8011.
 - Cloudflare Tunnel (`cloudflared`, systemd) maps subdomains to local ports —
   no open ports on the router.
 
