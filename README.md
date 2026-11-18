@@ -22,7 +22,7 @@ Configuration for the home server (NucBox, Ubuntu) hosting projects under the
 - This repository lives on the server at `~/Desktop/apps/configs` (excluded from the project loop).
 - Ports: pinokio → 8000, szafa → 8001, ai → 8002, saldo → 8003, zwroty → 8004, delivery → 8005,
   recive → 8006, cups → 8007, langup → 8008, landing (apex) → 8009, ecom-zwroty → 8010,
-  monolit → 8011; next project → 8012.
+  monolit → 8011, garaz → 8012; next project → 8013.
 - Cloudflare Tunnel (`cloudflared`, systemd) maps subdomains to local ports —
   no open ports on the router.
 

@@ -82,7 +82,8 @@ git_pull() {
 for dir in "$APPS_DIR"/*/; do
     name=$(basename "$dir")
     [ "$name" = "configs" ] && continue
-    [ -f "$dir/docker-compose.yml" ] || { log "Skipping $name (no docker-compose.yml)"; continue; }
+    # some projects use docker-compose.yaml, others docker-compose.yml
+    [ -f "$dir/docker-compose.yml" ] || [ -f "$dir/docker-compose.yaml" ]         || { log "Skipping $name (no docker-compose.yml/.yaml)"; continue; }
 
     if [ -d "$dir/.git" ]; then
         log "git pull for $name..."
@@ -102,7 +103,7 @@ sleep 30
 for dir in "$APPS_DIR"/*/; do
     name=$(basename "$dir")
     [ "$name" = "configs" ] && continue
-    [ -f "$dir/docker-compose.yml" ] || continue
+    [ -f "$dir/docker-compose.yml" ] || [ -f "$dir/docker-compose.yaml" ] || continue
 
     ps_json=$(cd "$dir" && docker compose ps -a --format json)
     failed=0
