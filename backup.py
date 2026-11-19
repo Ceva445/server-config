@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Database backups for all projects in ~/Desktop/apps.
+"""Database (and uploaded-file) backups for all projects in ~/Desktop/apps.
 
 Every run (hourly via backup.timer) stores the dump in ALL three places:
   1. local disk    ~/Desktop/backups/<project>/backup_*.sql.gz
@@ -85,6 +85,17 @@ MEDIA_BACKUP_PROJECTS = ("delivery_plus", "recive-stock")
 MEDIA_KEEP_MONTHS = 6
 MEDIA_SYNC_EVERY = timedelta(hours=3)
 FORCE_MEDIA = "--media-now" in sys.argv
+
+# Uploaded files kept in a project's Docker volume (not a ./media folder):
+# GARAZ's incident photos and scanned permit documents. Evidence, so the copy
+# is ADD-ONLY on both the USB stick and Google Drive: a file removed (or lost)
+# on the server stays in the backup. Files are written once and never changed,
+# so after the first run only new ones move. Every 3 hours; force it with:
+#   sudo python3 backup.py --files-now
+# Reading /var/lib/docker/volumes needs root — the systemd service runs as root.
+VOLUME_BACKUP = {"garaz": "filestore"}  # project -> compose volume name
+FILES_SYNC_EVERY = timedelta(hours=3)
+FORCE_FILES = "--files-now" in sys.argv
 
 TS = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
 LOG_FILE = LOG_DIR / f"backup_{TS}.log"
@@ -445,6 +456,67 @@ def backup_media_to_usb(name: str, state: dict) -> None:
         log(f"{name}: images synced to USB")
 
 
+def volume_dir(project: str, volume: str) -> Path | None:
+    """Where a compose project's named volume lives on the host."""
+    result = run(["docker", "volume", "ls", "-q",
+                  "--filter", f"label=com.docker.compose.project={project}",
+                  "--filter", f"label=com.docker.compose.volume={volume}"])
+    names = result.stdout.decode().split() if result.returncode == 0 else []
+    if len(names) != 1:
+        return None
+    inspect = run(["docker", "volume", "inspect", "-f", "{{.Mountpoint}}", names[0]])
+    path = Path(inspect.stdout.decode().strip()) if inspect.returncode == 0 else None
+    return path if path and path.is_dir() else None
+
+
+def backup_volume_files(name: str, volume: str, state: dict) -> None:
+    """Add-only copy of a project's file volume to the USB stick and Google Drive."""
+    last = state.setdefault("last_files_sync", {})
+    if not FORCE_FILES and last.get(name):
+        try:
+            if datetime.now() - datetime.fromisoformat(last[name]) < FILES_SYNC_EVERY:
+                return
+        except ValueError:
+            pass
+
+    src = volume_dir(name, volume)
+    if src is None:
+        error(f"{name}: volume '{volume}' not found or not readable (run as root)")
+        return
+    if not any(src.iterdir()):
+        log(f"{name}: volume '{volume}' is empty — nothing to copy")
+        last[name] = datetime.now().isoformat()
+        return
+
+    ok = True
+    if mount_usb():
+        dest = USB_DIR / "files" / name
+        dest.mkdir(parents=True, exist_ok=True)
+        # No --delete: removed on the server, still kept here. exFAT has no
+        # owners/permissions, so only times are preserved.
+        result = run(["rsync", "-rt", f"{src}/", f"{dest}/"])
+        if result.returncode != 0:
+            ok = False
+            error(f"{name}: files rsync to USB failed: {result.stderr.decode(errors='replace')[:300]}")
+    else:
+        ok = False
+        error(f"{name}: USB not available — files backup skipped")
+
+    if shutil.which("rclone"):
+        # `copy`, not `sync`: never deletes anything on Drive.
+        result = run(["rclone", "copy", str(src), f"{RCLONE_REMOTE}{name}/files"])
+        if result.returncode != 0:
+            ok = False
+            error(f"{name}: files upload to Drive failed: {result.stderr.decode(errors='replace')[:300]}")
+    else:
+        ok = False
+        error("rclone is not installed")
+
+    if ok:
+        last[name] = datetime.now().isoformat()
+        log(f"{name}: files from volume '{volume}' copied to USB and Drive")
+
+
 def main() -> int:
     state = load_state()
     log("Backup run started")
@@ -460,6 +532,10 @@ def main() -> int:
     # image (media) backups — USB only, last 6 months
     for name in MEDIA_BACKUP_PROJECTS:
         backup_media_to_usb(name, state)
+
+    # uploaded files kept in Docker volumes — USB + Drive, add-only
+    for name, volume in VOLUME_BACKUP.items():
+        backup_volume_files(name, volume, state)
 
     save_state(state)
 

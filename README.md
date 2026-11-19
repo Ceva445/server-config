@@ -10,7 +10,7 @@ Configuration for the home server (NucBox, Ubuntu) hosting projects under the
 | `startup.sh` | Boot script: Wi-Fi → git pull → docker compose up --build → health check → logs/alerts |
 | `apps-startup.service` | systemd unit that runs `startup.sh` at boot |
 | `cloudflared/ingress.yml` | Tunnel ingress rules (subdomain → local port) |
-| `backup.py` | Hourly DB backups to local disk + Google Drive + USB (48 copies each, dedup) |
+| `backup.py` | Hourly DB backups to local disk + Google Drive + USB (48 copies each, dedup); uploaded files from Docker volumes to USB + Drive |
 | `backup.service` + `backup.timer` | systemd timer that runs `backup.py` every hour |
 | `install.sh` | Deploys everything above onto the server |
 | `templates/` | Templates for secret configs (real ones live only on the server, never committed) |
@@ -111,6 +111,30 @@ not to local disk or Google Drive.
   ```bash
   cd ~/Desktop/apps/configs
   sudo python3 backup.py --media-now
+  ```
+
+### Uploaded files in Docker volumes — USB + Google Drive, add-only
+
+`garaz` keeps incident photos and scanned permit documents in the Docker volume
+`garaz_filestore` (not in a `./media` folder). They are evidence, so they are
+copied to **both** the USB stick and Google Drive, and **never deleted** there:
+a file removed or lost on the server stays in the backup.
+
+- **Projects**: `VOLUME_BACKUP` in `backup.py` (`{"garaz": "filestore"}`); the
+  volume is found by its compose labels, so the folder name does not matter.
+- **Every 3 hours** (tracked in `backup_state.json`); incremental — the files
+  never change once written, so only new ones move.
+- **Paths**: USB `/mnt/backup-usb/files/<project>/`, Drive `gdrive:<project>/files/`.
+- Needs root (the volume is under `/var/lib/docker`); the systemd service is root.
+- **Manual trigger**:
+  ```bash
+  cd ~/Desktop/apps/configs
+  sudo python3 backup.py --files-now
+  ```
+- **Restore** (into the running project's volume):
+  ```bash
+  sudo rsync -rt /mnt/backup-usb/files/garaz/ "$(docker volume inspect -f '{{.Mountpoint}}' garaz_filestore)/"
+  # or from Drive:  sudo rclone copy gdrive:garaz/files "$(docker volume inspect -f '{{.Mountpoint}}' garaz_filestore)"
   ```
 
 ### Image export to a plugged-in drive (udev trigger)
