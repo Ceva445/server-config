@@ -6,4 +6,6 @@ After=docker.service
 [Service]
 Type=oneshot
 ExecStart=/usr/bin/python3 /home/piatek/Desktop/apps/configs/backup.py
-TimeoutStartSec=600
+# A run takes 3–10 minutes (dumps, USB, Google Drive; photos every 3 h);
+# 10 minutes was too tight and killed a run now and then. The timer is hourly.
+TimeoutStartSec=2700
